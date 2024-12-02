@@ -9,7 +9,6 @@ from langchain.prompts import ChatPromptTemplate, PromptTemplate
 from langchain_ollama import ChatOllama
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnablePassthrough
-from langchain.retrievers.multi_query import MultiQueryRetriever
 import ollama
 
 # Configure logging
@@ -24,7 +23,7 @@ PERSIST_DIRECTORY = "./chroma_db"
 
 # Load PDF documents
 def ingest_pdf(doc_path):
-    """Load PDF documents."""
+    """Load PDF documents.""" 
     if os.path.exists(doc_path):
         loader = UnstructuredPDFLoader(file_path=doc_path)
         data = loader.load()
@@ -80,36 +79,43 @@ def load_vector_db():
         st.error(f"An unexpected error occurred: {str(e)}")
     return None
 
-# Suggest similar questions with context-awareness
-def suggest_similar_questions(user_input, vector_db, llm):
-    """Generate similar questions dynamically based on the user input.""" 
-    suggestions = [
-        f"Can you explain more about {user_input}?",
-        f"What insights does the document provide about {user_input}?",
-        f"Could you summarize the key points on {user_input}?",
-        f"What does the document say regarding {user_input}?",
-        f"How is {user_input} discussed in the document?"
-    ]
-    return suggestions
-
-# Create a multi-query retriever
-def create_retriever(vector_db, llm):
-    """Create a multi-query retriever.""" 
+def create_suggestions(llm, user_question):
+    """Create alternative suggestions based on the user question."""
     QUERY_PROMPT = PromptTemplate(
         input_variables=["question"],
-        template="""You are an AI language model assistant. Your task is to generate five
-different versions of the given user question to retrieve relevant documents from
-a vector database. By generating multiple perspectives on the user question, your
-goal is to help the user overcome some of the limitations of the distance-based
-similarity search. Provide these alternative questions separated by newlines.
-Original question: {question}""",
+        template="""You are an AI language model assistant. Given the original question, please generate five alternative questions that help the user extract information from the document.Do not use numbers to enumerate them.
+        Provide these alternative questions separated by newlines.
+        Original question: {question}"""
     )
 
-    retriever = MultiQueryRetriever.from_llm(
-        vector_db.as_retriever(), llm, prompt=QUERY_PROMPT
+    prompt = QUERY_PROMPT.format(question=user_question)
+
+    # Generate alternative questions using the LLM
+    response = llm.invoke(prompt)
+
+    # Extract the content and split into lines
+    response_text = response.content  # Extract only the content from the response
+    suggestions = response_text.split("\n")
+
+    # Skip the intro and only return the actual suggestions
+    filtered_suggestions = [line for line in suggestions if line.strip() and not line.startswith("Here are")]
+    logging.info("Suggestions generated.")
+    return filtered_suggestions
+
+
+# Create the retriever
+def create_retriever(vector_db, llm):
+    """Create the retriever.""" 
+    QUERY_PROMPT = PromptTemplate(
+        input_variables=["question"],
+        template="""You are an AI language model assistant. Your task is to generate five different versions of the given user question to retrieve relevant documents from a vector database.
+By generating multiple perspectives on the user question, your goal is to help the user overcome some of the limitations of the distance-based similarity search. Provide these alternative questions separated by newlines.
+Original question: {question}"""
     )
+
+    retriever = vector_db.as_retriever()  # Using Chroma's retriever functionality
     logging.info("Retriever created.")
-    return retriever
+    return retriever 
 
 # Create the chain for answering questions
 def create_chain(retriever, llm):
@@ -160,10 +166,11 @@ def main():
                     return
 
                 # Suggest similar queries
-                suggestions = suggest_similar_questions(user_input, vector_db, llm)
+                suggestions = create_suggestions(llm, user_input)
                 st.write("**Suggested queries:**")
-                for suggestion in suggestions:
+                for suggestion in (suggestions):
                     st.write(f"- {suggestion}")
+
 
                 # Create the retriever
                 retriever = create_retriever(vector_db, llm)
