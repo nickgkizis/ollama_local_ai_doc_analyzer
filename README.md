@@ -1,0 +1,1 @@
+# ollama_local_ai_doc_analyzer
