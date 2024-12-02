@@ -2,6 +2,8 @@
 
 This Document Assistant is an intelligent application built to process PDF documents, extract relevant sections, and provide insightful responses to user queries using advanced vector-based search and AI-powered language modeling.
 
+![Alt text](https://github.com/nickgkizis/ollama_local_ai_doc_analyzer/blob/391bcca7413db5ed1b47ca0a38af34ad4fedb915/data/Screenshot%202024-12-03%20010352.png)
+
 ## Table of Contents
 - Features
 - Prerequisites
